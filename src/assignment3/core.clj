@@ -24,13 +24,15 @@
   (BufferedImage. width height BufferedImage/TYPE_INT_RGB)
 )
 
-(defn read-image
+(defn read-image-slow
   "Function to read an image from a file."
   [filename]
     (let [file (File. filename)]
       (ImageIO/read file)
     )
 )
+
+(def read-image (memoize read-image-slow))
 
 (defn save-image
   "Function to save an image with a particular extension to a file."
@@ -52,7 +54,7 @@
   (.getHeight image)
 )
 
-(defn get-rgb
+(defn get-rgb-slow
   "Function to get the RGB components of a pixel in a vector of length 3."
   [image x y]
     (let [rgb (.getRGB image x y)
@@ -62,6 +64,15 @@
           ]
         (vec (list red green blue))
       )
+)
+
+(def get-rgb (memoize get-rgb-slow))
+
+(defn get-rgb-pr
+  "Function to get the RGB components of a pixel in a vector of length 3."
+  [image x y]
+  (print image)
+  (get-rgb image x y)
 )
 
 (defn set-rgb
@@ -84,7 +95,7 @@
   (int (/ (reduce + (get-rgb image x y) ) 3.0))
 )
 
-(defn apply-filter [image output x y i]
+(defn apply-filter-slow [image output x y i]
   (def new_val 0)
   (def iwidth (- (get-width image) 1))
   (def iheight (- (get-height image) 1))
@@ -108,7 +119,9 @@
   (set-grey output x y (min 255 (max 0 (+ 127 new_val))))
 )
 
-(defn kirsh [file i] 
+(def apply-filter (memoize apply-filter-slow))
+
+(defn kirsh-slow [file i] 
   (def input (read-image file))
   (def iwidth (get-width input))
   (def iheight (get-height input))
@@ -122,26 +135,37 @@
   (do output)
 )
 
+(def kirsh (memoize kirsh-slow))
+
+(defn apply-all-kirsh-slow [file]
+  (doall (map kirsh [file file file file file file file file] (range 8)))
+)
+
+(def apply-all-kirsh (memoize apply-all-kirsh-slow))
+
+
 (defn edge-magnitude-hist [file] 
-  (
-    ;; Get process image with all filters - TODO make this cleaner
-    (def images (list (doall (pmap kirsh [file file file file file file file file] (range 8)))))
+    ;; Get process image with all filters
+    (def images (apply-all-kirsh file))
+
+    ;; Get dimension
+    (def first_img (nth images 0))
+    (def iwidth (get-width first_img))
+    (def iheight (get-height first_img))
+
+    ;; Def new image
+    (def mag (new-image iwidth iheight))
 
     ;; combine each image to get the magnitude image
-    ;;(def iwidth (min (for [img images] (get-width img))))
-    ;;(def iheight (min (for [img images] (get-height img))))
-    ;;(def mag (new-image iwidth iheight))
-    ; (dotimes [x iwidth]
-    ;   (dotimes [y iheight]
-    ;     ;(println (apply max (for [img images] (get-val img x y))))
-    ;     (set-grey mag x y (apply max (for [img images] (get-val img x y))))
-    ;   )
-    ; )
-    ; (println "done mag")
-    ; (save-image mag "jpg" "/tmp/ass3mag.jpg")
+    (dotimes [x iwidth]
+      (dotimes [y iheight]
+        ;(println (max (doall (for [img images] (get-val img x y)))))
+        (set-grey mag x y (apply max (doall (for [img images] (get-val img x y)))))
+      )
+    )
+    (save-image mag "jpg" "/tmp/ass3mag.jpg")
 
-    ;; Bin into 8 different bins (0->31, 32->63...)
-  )
+    ;; Sort into 8 different bins (0->31, 32->63...)
 )
 
 (defn -main
