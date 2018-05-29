@@ -159,20 +159,26 @@
     ;; combine each image to get the magnitude image
     (dotimes [x iwidth]
       (dotimes [y iheight]
-        ;(println (max (doall (for [img images] (get-val img x y)))))
         (set-grey mag x y (apply max (doall (for [img images] (get-val img x y)))))
       )
     )
     (save-image mag "jpg" "/tmp/ass3mag.jpg")
 
     ;; Sort into 8 different bins (0->31, 32->63...)
+    (def bins [0, 0, 0, 0, 0, 0, 0, 0])
+    (dotimes [x iwidth]
+      (dotimes [y iheight]
+        (def bins (assoc bins (int (/ (get-val mag x y) 32)) (inc (nth bins (int (/ (get-val mag x y) 32))))))
+      )
+    )
+    (do bins)
 )
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (def file "vehicle_images/car1.jpg")
-  (edge-magnitude-hist file)
+  (println (edge-magnitude-hist file))
   ; (save-image (kirsh file 0) "jpg" "/tmp/ass3out0.jpg")
   ; (save-image (kirsh file 1) "jpg" "/tmp/ass3out1.jpg")
   ; (save-image (kirsh file 2) "jpg" "/tmp/ass3out2.jpg")
