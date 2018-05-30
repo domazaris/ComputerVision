@@ -184,11 +184,46 @@
     )
 )
 
+(defn get-index [item items]
+  (keep-indexed #(when (= %2 item) %1) items)
+)
+
+(defn argmax [images x y]
+  (let  [
+          image_values (vec (doall (for [img images] (get-val img x y))))
+        ]
+        (first (get-index (apply max (doall image_values)) image_values))
+  )
+)
+
+(defn edge-direction-hist [file]
+    (let [
+            images    (apply-all-kirsh file)
+            first_img (nth images 0)
+            iwidth    (get-width first_img)
+            iheight   (get-height first_img)
+            dir       (new-image iwidth iheight)
+         ]
+
+          ;; combine each image to get the direction image
+          (def bins (vec (make-array Integer/TYPE 8)))
+          (dotimes [x iwidth]
+            (dotimes [y iheight]
+              (def bins (assoc bins (argmax images x y) (inc (nth bins (argmax images x y)))))
+            )
+          )
+
+          ;; Sort into 8 different bins & normalize
+          (normalize bins)
+    )
+)
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (def file "vehicle_images/car1.jpg")
   (println (edge-magnitude-hist file))
+  (println (edge-direction-hist file))
   ; (save-image (kirsh file 0) "jpg" "/tmp/ass3out0.jpg")
   ; (save-image (kirsh file 1) "jpg" "/tmp/ass3out1.jpg")
   ; (save-image (kirsh file 2) "jpg" "/tmp/ass3out2.jpg")
