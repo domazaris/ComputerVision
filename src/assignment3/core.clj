@@ -96,9 +96,9 @@
 )
 
 (defn apply-filter-slow [image output x y i]
+  (let [iwidth  (- (get-width image) 1)
+        iheight (- (get-height image) 1)]
   (def new_val 0)
-  (def iwidth (- (get-width image) 1))
-  (def iheight (- (get-height image) 1))
   (dotimes [h 3]
     (dotimes [w 3]
       (if (or (< (+ x (- w 1)) 0 ) (< (+ y (- h 1)) 0) (> (+ x (- w 1)) iwidth) (> (+ y (- h 1)) iheight)) ()
@@ -117,6 +117,7 @@
     )
   )
   (set-grey output x y (min 255 (max 0 (+ 127 new_val))))
+  )
 )
 
 (def apply-filter (memoize apply-filter-slow))
@@ -146,7 +147,7 @@
 (def apply-all-kirsh (memoize apply-all-kirsh-slow))
 
 (defn normalize [histogram]
-  (doall (map #(double(/ % (reduce + histogram))) histogram))
+  (vec (doall (map #(double(/ % (reduce + histogram))) histogram)))
 )
 
 (defn bin-image [image width height n_bins]
@@ -218,19 +219,32 @@
     )
 )
 
+(defn intensity [file]
+    (let [
+            image     (read-image file)
+            iwidth    (get-width image)
+            iheight   (get-height image)
+         ]
+         (normalize (bin-image image iwidth iheight 8))
+    )
+)
+
+(defn image-descriptor [file]
+  (let [
+    edge_dir  (vec (edge-direction-hist file))
+    edge_mag  (vec (edge-magnitude-hist file))
+    intensity (vec (intensity file))
+  ]
+  (normalize (concat edge_dir edge_mag intensity))
+)
+)
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (def file "vehicle_images/car1.jpg")
-  (println (edge-magnitude-hist file))
-  (println (edge-direction-hist file))
-  ; (save-image (kirsh file 0) "jpg" "/tmp/ass3out0.jpg")
-  ; (save-image (kirsh file 1) "jpg" "/tmp/ass3out1.jpg")
-  ; (save-image (kirsh file 2) "jpg" "/tmp/ass3out2.jpg")
-  ; (save-image (kirsh file 3) "jpg" "/tmp/ass3out3.jpg")
-  ; (save-image (kirsh file 4) "jpg" "/tmp/ass3out4.jpg")
-  ; (save-image (kirsh file 5) "jpg" "/tmp/ass3out5.jpg")
-  ; (save-image (kirsh file 6) "jpg" "/tmp/ass3out6.jpg")
-  ; (save-image (kirsh file 7) "jpg" "/tmp/ass3out7.jpg")
+  (let  [
+          file "vehicle_images/car1.jpg"
+        ]
+        (prn (image-descriptor file))
+  )
 )
- 
