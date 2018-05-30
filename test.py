@@ -6,6 +6,7 @@ import random
 import pathlib
 import subprocess
 import multiprocessing
+from operator import itemgetter
 
 def cmp_image(images):
     ''' Compares two images and returns a float from 0->1 '''
@@ -26,7 +27,7 @@ def find_images():
 
 def test():
     ''' Picks a random image, then compares it to every other image in folder '''
-    all_images = find_images()[:4]
+    all_images = find_images()
     base_image = random.choice(all_images)
     print("Base Image: {}".format(base_image))
 
@@ -38,16 +39,9 @@ def test():
     with multiprocessing.Pool(processes=4) as pool:
         results = pool.map(cmp_image, experiments)
 
-        for res in results:
+        results = sorted(results, key=itemgetter("val"), reverse=True)
+        for res in results[:6]:
             print("{}:\t{}".format(res["cmp"], res["val"]))
-
-    # for img in all_images:
-    #     if img is not base_image:
-    #         test_results[img] = cmp_image(base_image, img)
-    # print("Top 5 Results:")
-    # print(heapq.nlargest(5, test_results, key=test_results.get))
-
-
 
 def main():
     ''' Main func'''
