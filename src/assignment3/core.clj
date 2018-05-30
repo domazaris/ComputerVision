@@ -122,56 +122,66 @@
 (def apply-filter (memoize apply-filter-slow))
 
 (defn kirsh-slow [file i] 
-  (def input (read-image file))
-  (def iwidth (get-width input))
-  (def iheight (get-height input))
-  (def output (new-image iwidth iheight))
-
-  (dotimes [x iwidth]
-    (dotimes [y iheight]
-      (apply-filter input output x y i)
-    )
+  (let  [ 
+          input (read-image file)
+          iwidth (get-width input)
+          iheight (get-height input)
+          output (new-image iwidth iheight)
+        ]
+        (dotimes [x iwidth]
+          (dotimes [y iheight]
+            (apply-filter input output x y i)
+          )
+        )
+        (do output)
   )
-  (do output)
 )
 
 (def kirsh (memoize kirsh-slow))
 
 (defn apply-all-kirsh-slow [file]
-  (doall (map kirsh [file file file file file file file file] (range 8)))
+  (doall (map #(kirsh file %) (range 8)))
 )
 
 (def apply-all-kirsh (memoize apply-all-kirsh-slow))
 
+(defn normalize [histogram]
+  (doall (map #(double(/ % (reduce + histogram))) histogram))
+)
 
-(defn edge-magnitude-hist [file] 
-    ;; Get process image with all filters
-    (def images (apply-all-kirsh file))
+(defn bin-image [image width height n_bins]
+  (let  [
+          bin_size (int (/ 256 n_bins))
+        ]
+        (def bins (vec (make-array Integer/TYPE n_bins)))
+        (dotimes [x width]
+          (dotimes [y height]
+            (def bins (assoc bins (int (/ (get-val image x y) bin_size)) (inc (nth bins (int (/ (get-val image x y) bin_size))))))
+          )
+        )
+        (do bins)
+  )
+)
 
-    ;; Get dimension
-    (def first_img (nth images 0))
-    (def iwidth (get-width first_img))
-    (def iheight (get-height first_img))
+(defn edge-magnitude-hist [file]
+    (let [
+            images    (apply-all-kirsh file)
+            first_img (nth images 0)
+            iwidth    (get-width first_img)
+            iheight   (get-height first_img)
+            mag       (new-image iwidth iheight)
+         ]
 
-    ;; Def new image
-    (def mag (new-image iwidth iheight))
+          ;; combine each image to get the magnitude image
+          (dotimes [x iwidth]
+            (dotimes [y iheight]
+              (set-grey mag x y (apply max (doall (for [img images] (get-val img x y)))))
+            )
+          )
 
-    ;; combine each image to get the magnitude image
-    (dotimes [x iwidth]
-      (dotimes [y iheight]
-        (set-grey mag x y (apply max (doall (for [img images] (get-val img x y)))))
-      )
+          ;; Sort into 8 different bins & normalize
+          (normalize (bin-image mag iwidth iheight 8))
     )
-    (save-image mag "jpg" "/tmp/ass3mag.jpg")
-
-    ;; Sort into 8 different bins (0->31, 32->63...)
-    (def bins [0, 0, 0, 0, 0, 0, 0, 0])
-    (dotimes [x iwidth]
-      (dotimes [y iheight]
-        (def bins (assoc bins (int (/ (get-val mag x y) 32)) (inc (nth bins (int (/ (get-val mag x y) 32))))))
-      )
-    )
-    (do bins)
 )
 
 (defn -main
