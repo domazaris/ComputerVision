@@ -278,6 +278,5 @@
 (defn -main
   "Takes 2 images and outputs the similarity"
   [& args]
-  (println "Files:     " (first args) (second args))
-  (println "Similarity:" (image-similarity (first args) (second args)))
+  (print (image-similarity (first args) (second args)))
 )
