@@ -42,17 +42,19 @@
     )
 )
 
-(defn get-width
+(defn get-width-slow
   "Function to get the width of an image."
   [image]
   (.getWidth image)
 )
+(def get-width (memoize get-width-slow))
 
-(defn get-height
+(defn get-height-slow
   "Function to get the height of an image."
   [image]
   (.getHeight image)
 )
+(def get-height (memoize get-height-slow))
 
 (defn get-rgb-slow
   "Function to get the RGB components of a pixel in a vector of length 3."
@@ -65,15 +67,7 @@
         (vec (list red green blue))
       )
 )
-
 (def get-rgb (memoize get-rgb-slow))
-
-(defn get-rgb-pr
-  "Function to get the RGB components of a pixel in a vector of length 3."
-  [image x y]
-  (print image)
-  (get-rgb image x y)
-)
 
 (defn set-rgb
   "Function to set the RGB components of a pixel."
@@ -91,9 +85,10 @@
   (set-rgb image x y [grey grey grey])
 )
 
-(defn get-val [image x y]
+(defn get-val-slow [image x y]
   (int (/ (reduce + (get-rgb image x y) ) 3.0))
 )
+(def get-val (memoize get-val-slow))
 
 (defn apply-filter-slow [image output x y i]
   (let [iwidth  (- (get-width image) 1)
@@ -119,7 +114,6 @@
   (set-grey output x y (min 255 (max 0 (+ 127 new_val))))
   )
 )
-
 (def apply-filter (memoize apply-filter-slow))
 
 (defn kirsh-slow [file i] 
@@ -137,20 +131,19 @@
         (do output)
   )
 )
-
 (def kirsh (memoize kirsh-slow))
 
 (defn apply-all-kirsh-slow [file]
   (doall (map #(kirsh file %) (range 8)))
 )
-
 (def apply-all-kirsh (memoize apply-all-kirsh-slow))
 
-(defn normalize [histogram]
+(defn normalize-slow [histogram]
   (vec (doall (map #(double(/ % (reduce + histogram))) histogram)))
 )
+(def normalize (memoize normalize-slow))
 
-(defn bin-image [image width height n_bins]
+(defn bin-image-slow [image width height n_bins]
   (let  [
           bin_size (int (/ 256 n_bins))
         ]
@@ -163,8 +156,9 @@
         (do bins)
   )
 )
+(def bin-image (memoize bin-image-slow))
 
-(defn edge-magnitude-hist [file]
+(defn edge-magnitude-hist-slow [file]
     (let [
             images    (apply-all-kirsh file)
             first_img (nth images 0)
@@ -184,20 +178,23 @@
           (normalize (bin-image mag iwidth iheight 8))
     )
 )
+(def edge-magnitude-hist (memoize edge-magnitude-hist-slow))
 
-(defn get-index [item items]
+(defn get-index-slow [item items]
   (keep-indexed #(when (= %2 item) %1) items)
 )
+(def get-index (memoize get-index-slow))
 
-(defn argmax [images x y]
+(defn argmax-slow [images x y]
   (let  [
           image_values (vec (doall (for [img images] (get-val img x y))))
         ]
         (first (get-index (apply max (doall image_values)) image_values))
   )
 )
+(def argmax (memoize argmax-slow))
 
-(defn edge-direction-hist [file]
+(defn edge-direction-hist-slow [file]
     (let [
             images    (apply-all-kirsh file)
             first_img (nth images 0)
@@ -218,8 +215,9 @@
           (normalize bins)
     )
 )
+(def edge-direction-hist (memoize edge-direction-hist-slow))
 
-(defn intensity [file]
+(defn intensity-slow [file]
     (let [
             image     (read-image file)
             iwidth    (get-width image)
@@ -228,8 +226,9 @@
          (normalize (bin-image image iwidth iheight 8))
     )
 )
+(def intensity (memoize intensity-slow))
 
-(defn image-descriptor [file]
+(defn image-descriptor-slow [file]
   (let [
     edge_dir  (vec (edge-direction-hist file))
     edge_mag  (vec (edge-magnitude-hist file))
@@ -238,13 +237,21 @@
   (normalize (concat edge_dir edge_mag intensity))
 )
 )
+(def image-descriptor (memoize image-descriptor-slow))
+
+(defn image-similarity-slow [file1 file2]
+  (let  [
+          image1 (image-descriptor file1)
+          image2 (image-descriptor file2)
+        ]
+        (reduce + (doall (map min image1 image2)))
+)
+)
+(def image-similarity (memoize image-similarity-slow))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let  [
-          file "vehicle_images/car1.jpg"
-        ]
-        (prn (image-descriptor file))
-  )
+  (println "Files:" (first args) (second args))
+  (println "Similarity:" (image-similarity (first args) (second args)))
 )
