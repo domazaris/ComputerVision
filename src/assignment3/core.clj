@@ -5,6 +5,8 @@
   (:import [java.io File])
 )
 
+(require '[clojure.string :as str])
+
 (def filters [
                [-1, 0, 1, -2, 0, 2, -1, 0, 1],
                [-2, -1, 0, -1,  0, 1, 0,  1, 2],
@@ -250,16 +252,45 @@
 )
 (def intensity (memoize intensity-slow))
 
+(defn read-desc-from-file
+  "Reads and returns the image descriptor from a cache file"
+  [image_file]
+  (let  [
+          input (str "cache_dir/a3_" (first (str/split (last (str/split image_file #"/")) #"\.")) ".txt")
+        ]
+        (try (vec (doall (map read-string (str/split (slurp input) #"\s")))) (catch Exception e (do nil)))
+  )
+)
+
+(defn desc-to-file 
+  "Writes the given image descriptor to a file (caching)"
+  [bins image_file]
+  (let  [
+          output (str "cache_dir/a3_" (first (str/split (last (str/split image_file #"/")) #"\.")) ".txt")
+        ]
+        ;; Clear output file
+        (spit output "" :append false)
+
+        ;; Write each item as a new line
+        (doseq [bin bins] (spit output (str bin "\n") :append true))
+  )
+)
+
 (defn image-descriptor-slow 
   "Returns the image descriptor for the given image"
   [file]
-  (let [
-    edge_dir  (vec (edge-direction-hist file))
-    edge_mag  (vec (edge-magnitude-hist file))
-    intensity (vec (intensity file))
-  ]
-  (normalize (concat edge_dir edge_mag intensity))
-)
+  (let  [
+          cache     (read-desc-from-file file)
+          edge_dir  (if (nil? cache) (vec (edge-direction-hist file)) (do nil))
+          edge_mag  (if (nil? cache) (vec (edge-magnitude-hist file)) (do nil))
+          intensity (if (nil? cache) (vec (intensity file)) (do nil))
+          output    (if (nil? cache) (normalize (concat edge_dir edge_mag intensity)) (do cache))
+        ]
+        ;; If not already cached, store the file
+        ;(if (nil? cache) (desc-to-file output file) (println "Cached descriptor" file))
+        (if (nil? cache) (desc-to-file output file) ())
+        (do output)
+  )
 )
 (def image-descriptor (memoize image-descriptor-slow))
 
@@ -275,8 +306,45 @@
 )
 (def image-similarity (memoize image-similarity-slow))
 
+(defn average-compare-slow
+  "Returns the average difference between the image and the given set"
+  [image set]
+  (float (/ (reduce + (doall (pmap #(image-similarity image %) set))) (count set)))
+)
+(def average-compare (memoize average-compare-slow))
+
+(defn experiment
+  "Runs an experiment on the similarity functions"
+  []
+  (let  [
+          cars (vec (doall (map #(str "vehicle_images/car" % ".jpg") (range 1 21))))
+          planes (vec (doall (map #(str "vehicle_images/plane" % ".jpg") (range 1 21))))
+          trains (vec (doall (map #(str "vehicle_images/train" % ".jpg") (range 1 21))))
+        ]
+
+
+        (println "Average cars")
+        (println "\t vs cars:   " (float (/ (reduce + (doall (pmap #(average-compare % cars) cars))) (count cars))))
+        (println "\t vs trains: " (float (/ (reduce + (doall (pmap #(average-compare % trains) cars))) (count trains))))
+        (println "\t vs planes: " (float (/ (reduce + (doall (pmap #(average-compare % planes) cars))) (count planes))))
+
+        (println "Average trains")
+        (println "\t vs cars:   " (float (/ (reduce + (doall (pmap #(average-compare % cars) trains))) (count cars))))
+        (println "\t vs trains: " (float (/ (reduce + (doall (pmap #(average-compare % trains) trains))) (count trains))))
+        (println "\t vs planes: " (float (/ (reduce + (doall (pmap #(average-compare % planes) trains))) (count planes))))
+
+        (println "Average planes")
+        (println "\t vs cars:   " (float (/ (reduce + (doall (pmap #(average-compare % cars) planes))) (count cars))))
+        (println "\t vs trains: " (float (/ (reduce + (doall (pmap #(average-compare % trains) planes))) (count trains))))
+        (println "\t vs planes: " (float (/ (reduce + (doall (pmap #(average-compare % planes) planes))) (count planes))))
+  )
+)
+
 (defn -main
   "Takes 2 images and outputs the similarity"
   [& args]
-  (print (image-similarity (first args) (second args)))
+  (if (= "experiment" (first args))
+    (experiment)
+    (print (image-similarity (first args) (second args)))
+  )
 )
